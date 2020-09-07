@@ -9,6 +9,11 @@ const sortGCSHeaders = (headers) =>
     .map(({ name, value }) => `${name}:${value}\n`)
     .join("");
 
+const getQueryString = (parameters) =>
+  parameters.length > 0
+    ? "?" + parameters.map(({ name, value }) => `${name}=${value}`).join("&")
+    : "";
+
 module.exports.requestHooks = [
   ({ request, app }) => {
     const env = request.getEnvironment();
@@ -16,7 +21,7 @@ module.exports.requestHooks = [
     const date = new Date().toUTCString();
     const contentType = request.getHeader("Content-Type") || "application/json";
     const method = request.getMethod();
-    const path = url.pathname;
+    const path = `${url.pathname}${getQueryString(request.getParameters())}`;
     const gcsHeaders = sortGCSHeaders(request.getHeaders());
 
     if (!env.ingenico || !url.hostname.includes("api-ingenico.com")) {
@@ -31,6 +36,7 @@ module.exports.requestHooks = [
     }
 
     const content = `${method}\n${contentType}\n${date}\n${gcsHeaders}${path}\n`;
+
     const signature = createHmac("sha256", env.ingenico.apiKeySecret)
       .update(content)
       .digest("base64");
