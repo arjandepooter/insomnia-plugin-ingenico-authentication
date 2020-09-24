@@ -1,4 +1,4 @@
-const { createHmac } = require("crypto");
+const { createHmac, createHash } = require("crypto");
 const { URL } = require("url");
 
 const sortGCSHeaders = (headers) =>
@@ -13,6 +13,18 @@ const getQueryString = (parameters) =>
   parameters.length > 0
     ? "?" + parameters.map(({ name, value }) => `${name}=${value}`).join("&")
     : "";
+
+const sortOgoneParams = (params) =>
+  params
+    .filter(({ name }) => name !== "SHASIGN")
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+
+const signOgoneParams = (params, hashAlgorithm, passphrase) =>
+  createHash(hashAlgorithm)
+    .update(
+      params.map(({ name, value }) => `${name}=${value}${passphrase}`).join("")
+    )
+    .digest("hex");
 
 module.exports.requestHooks = [
   ({ request, app }) => {
@@ -50,5 +62,41 @@ module.exports.requestHooks = [
     if (!request.hasHeader("Content-Type")) {
       request.setHeader("Content-Type", contentType);
     }
+  },
+  ({ request, app }) => {
+    const env = request.getEnvironment();
+    const url = new URL(request.getUrl());
+
+    if (
+      !env.ingenico ||
+      (!url.hostname.includes("ogone.test.v-psp.com") &&
+        !url.hostname.includes("secure.ogone.com"))
+    ) {
+      return;
+    }
+
+    const { params, mimeType } = request.getBody();
+    const { shaPass, hashAlgorithm } = env.ingenico;
+
+    if (mimeType !== "application/x-www-form-urlencoded") {
+      return app.alert(
+        "Ingenico authorization",
+        "Please make sure to set the body mimetype to `Form URL encoded`."
+      );
+    }
+    if (!["sha1", "sha256", "sha512"].includes(hashAlgorithm)) {
+      return app.alert(
+        "Ingenico authorization",
+        "Please define one of the following hashing methods in ingenico.hashAlgorithm: `sha1`, `sha256` or `sha512`."
+      );
+    }
+
+    const paramsToUse = sortOgoneParams(params);
+    const hash = signOgoneParams(params, hashAlgorithm, shaPass);
+
+    request.setBody({
+      mimeType,
+      params: [...paramsToUse, { name: "SHASIGN", value: hash }],
+    });
   },
 ];
