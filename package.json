@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "author": "Arjan de Pooter",
   "license": "MIT",
+  "repository": {
+    "url": "https://github.com/arjandepooter/insomnia-plugin-ingenico-authentication"
+  },
   "insomnia": {
     "name": "Ingenico authentication",
     "description": "Automatically adds the Authorization header for Ingenico requests"
