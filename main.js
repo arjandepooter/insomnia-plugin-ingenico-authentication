@@ -92,7 +92,7 @@ module.exports.requestHooks = [
     }
 
     const paramsToUse = sortOgoneParams(params);
-    const hash = signOgoneParams(params, hashAlgorithm, shaPass);
+    const hash = signOgoneParams(paramsToUse, hashAlgorithm, shaPass);
 
     request.setBody({
       mimeType,
